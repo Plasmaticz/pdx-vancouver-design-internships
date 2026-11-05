@@ -1,7 +1,11 @@
 # Portland & Vancouver Graphic Design Internships
 
 <!-- OPENINGS:START -->
-Waiting for the first check.
+**0 current openings**
+
+| Internship | Company | Location |
+| --- | --- | --- |
+| No matching internships on the monitored boards. | | |
 <!-- OPENINGS:END -->
 
 ### Coverage
