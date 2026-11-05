@@ -28,18 +28,20 @@ test("uses metro city and state together", () => {
   assert.equal(metroLocation("Remote, United States"), null);
 });
 
-function sourcesFixture(input) {
+function sourcesFixture(input, options) {
   const url = new URL(input);
-  if (url.hostname === "careers.nike.com") {
-    const page = url.pathname.endsWith("/2") ? 2 : 1;
-    const job = {
-      requisitionID: `R-${page}`,
+  if (url.hostname === "nike.wd1.myworkdayjobs.com") {
+    if (!url.pathname.endsWith("/jobs")) {
+      return Response.json({ jobPostingInfo: { location: "Vancouver, British Columbia" } });
+    }
+    const { offset } = JSON.parse(options.body);
+    const page = offset + 1;
+    return Response.json({ total: 2, jobPostings: [{
       title: "Graphic Design Intern",
-      originalURL: `graphic-design-intern/job/R-${page}`,
-      locations: [{ cityState: page === 1 ? "Vancouver, British Columbia" : "Beaverton, Oregon" }],
-    };
-    const state = JSON.stringify({ jobSearch: { totalJob: 2, jobs: [job] } });
-    return new Response(`<script>window.__PRELOAD_STATE__ = ${state};</script>`);
+      externalPath: `/job/Graphic-Design-Intern_R-${page}`,
+      locationsText: page === 1 ? "Vancouver, British Columbia" : "Beaverton, Oregon",
+      bulletFields: [`R-${page}`],
+    }] });
   }
   if (url.hostname === "careers.adidas-group.com") {
     return new Response(`<span id="search-result__count-number" data-count-to="1"></span>
@@ -83,9 +85,9 @@ test("combines live board shapes, follows pages and resolves secondary locations
 
 test("a failed board cannot look like a successful empty check", async () => {
   await assert.rejects(
-    fetchJobs((url) => String(url).includes("boards-api.greenhouse.io")
+    fetchJobs((url, options) => String(url).includes("boards-api.greenhouse.io")
       ? new Response("", { status: 503 })
-      : sourcesFixture(url)),
+      : sourcesFixture(url, options)),
     /AKS Engineering & Forestry \(HTTP 503\)/,
   );
 });

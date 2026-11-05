@@ -47,36 +47,10 @@ function requireCount(total, rows) {
   }
 }
 
-function addPage(seen, rows, idFor) {
-  for (const row of rows) seen.add(idFor(row));
-}
-
 function requireProgress(seen, before, total, page) {
   if (seen.size >= total) return;
   if (seen.size === before || page >= PAGE_LIMIT) {
     throw new Error("Search pagination did not finish");
-  }
-}
-
-async function nike(fetchImpl) {
-  const site = "https://careers.nike.com";
-  const query = "?keyword=intern";
-  const seen = new Set();
-  const jobs = [];
-  for (let page = 1; ; page += 1) {
-    const path = page === 1 ? "/jobs" : `/jobs/page/${page}`;
-    const html = await (await get(fetchImpl, site + path + query)).text();
-    const state = html.match(/window\.__PRELOAD_STATE__\s*=\s*(\{[^\r\n]+\})/);
-    const result = state && JSON.parse(state[1]).jobSearch;
-    requireCount(result?.totalJob, result?.jobs);
-    const before = seen.size;
-    addPage(seen, result.jobs, (job) => job.requisitionID);
-    for (const job of result.jobs) {
-      const location = job.locations?.map((item) => metroLocation(item.cityState ?? "")).find(Boolean);
-      jobs.push(...makeJob("Nike", job.requisitionID, job.title, location, new URL(job.originalURL, site)));
-    }
-    if (seen.size >= result.totalJob) return jobs;
-    requireProgress(seen, before, result.totalJob, page);
   }
 }
 
@@ -113,12 +87,13 @@ async function adidas(fetchImpl) {
 
 const STATE_IDS = ["6fcc4198762c4a7c807486c849fe94dd", "de9b48948ef8421db97ddf4ea206e931"];
 const WORKDAY = [
-  ["Columbia Sportswear", "columbiasportswearcompany", "CSC_Careers", "locationRegionStateProvince"],
-  ["HP", "hp", "ExternalCareerSite", "Location_Region_State_Province"],
+  ["Nike", "nike", "wd1", "nke", {}],
+  ["Columbia Sportswear", "columbiasportswearcompany", "wd5", "CSC_Careers", { locationRegionStateProvince: STATE_IDS }],
+  ["HP", "hp", "wd5", "ExternalCareerSite", { Location_Region_State_Province: STATE_IDS }],
 ];
 
-async function workday(fetchImpl, [company, tenant, board, facet]) {
-  const site = `https://${tenant}.wd5.myworkdayjobs.com`;
+async function workday(fetchImpl, [company, tenant, cluster, board, appliedFacets]) {
+  const site = `https://${tenant}.${cluster}.myworkdayjobs.com`;
   const api = `${site}/wday/cxs/${tenant}/${board}`;
   const seen = new Set();
   const jobs = [];
@@ -127,7 +102,7 @@ async function workday(fetchImpl, [company, tenant, board, facet]) {
     const response = await get(fetchImpl, `${api}/jobs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ appliedFacets: { [facet]: STATE_IDS }, limit: 20, offset, searchText: "intern" }),
+      body: JSON.stringify({ appliedFacets, limit: 20, offset, searchText: "intern" }),
     });
     const { total, jobPostings } = await response.json();
     requireCount(total, jobPostings);
@@ -171,7 +146,6 @@ async function aks(fetchImpl) {
 
 export async function fetchJobs(fetchImpl = fetch) {
   const sources = [
-    ["Nike", () => nike(fetchImpl)],
     ["adidas", () => adidas(fetchImpl)],
     ...WORKDAY.map((source) => [source[0], () => workday(fetchImpl, source)]),
     ["AKS Engineering & Forestry", () => aks(fetchImpl)],
