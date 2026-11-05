@@ -1,0 +1,11 @@
+{
+  "name": "pdx-vancouver-design-internships",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/monitor.mjs check",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "cheerio": "1.0.0" }
+}

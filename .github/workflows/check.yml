@@ -1,0 +1,45 @@
+name: Check Portland and Vancouver design internships
+
+on:
+  schedule:
+    - cron: "4-59/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: design-internship-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - name: Check openings and alert on new roles
+        id: monitor
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: node scripts/monitor.mjs check "$RUNNER_TEMP/new-openings.md"
+      - name: Save current openings and seen IDs
+        run: |
+          git add README.md data/seen.json
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Update current internship listings'
+            git push
+          fi
+      - name: Create GitHub Issue for new roles
+        if: steps.monitor.outputs.new_count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue create --title "New Portland-area design internships" --body-file "$RUNNER_TEMP/new-openings.md"
